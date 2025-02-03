@@ -1,27 +1,57 @@
 import * as core from '@actions/core'
-import { wait } from './wait.js'
+import { getStatusChecks } from './github.js'
 
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
+const POLL_INTERVAL = 30000 // 30 seconds
+
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    const statusRegex = new RegExp(core.getInput('status-regex'))
+    const expectedChecks = parseInt(core.getInput('expected-checks'), 10)
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    if (isNaN(expectedChecks) || expectedChecks < 1) {
+      throw new Error('expected-checks must be a positive number')
+    }
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    while (true) {
+      const checks = await getStatusChecks()
+      core.debug(`Found ${checks.length} checks`)
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+      const matchedChecks = checks.filter((check) =>
+        statusRegex.test(check.context)
+      )
+
+      if (matchedChecks.length > 0) {
+        core.debug(`Found ${matchedChecks.length} matching checks`)
+
+        // Track successful checks
+        let successfulChecks = 0
+
+        for (const check of matchedChecks) {
+          if (check.state === 'failure') {
+            throw new Error(
+              `❌ Check '${check.context}' failed: ${check.description}`
+            )
+          }
+          if (check.state === 'success') {
+            core.info(`📋 Check '${check.context}' passed`)
+            successfulChecks++
+          }
+        }
+
+        // Exit if we have the expected number of successful checks
+        if (successfulChecks === expectedChecks) {
+          core.info(
+            `✅ All ${expectedChecks} expected checks have passed successfully`
+          )
+          return
+        }
+      } else {
+        core.info('🔄 No matching checks found yet, continuing to poll...')
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
+    }
   } catch (error) {
-    // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
