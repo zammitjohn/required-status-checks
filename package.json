@@ -1,7 +1,7 @@
 {
   "name": "required-status-checks",
-  "description": "A GitHub Action to enforce required status checks on a pull request",
-  "version": "0.0.0",
+  "description": "This GitHub Action monitors status checks that match a specific regular expression pattern and waits for them to complete successfully",
+  "version": "1.0.0",
   "author": "",
   "type": "module",
   "private": true,
