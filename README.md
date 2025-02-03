@@ -32,6 +32,21 @@ steps:
       expected-checks: '2' # Wait for 2 matching checks to pass
 ```
 
+## Integration with Repository Rulesets
+
+This action can be used in combination with GitHub repository rulesets to
+enforce status checks before merging pull requests. To set this up:
+
+1. Go to your repository's Settings > Rules > Rulesets
+2. Create a new ruleset or edit an existing one
+3. Under "Status checks that are required", select the status checks that must
+   pass
+4. Enable "Require status checks to pass before merging" and select the status
+   check where this action is invoked
+
+This ensures that pull requests can only be merged after the specified status
+checks complete successfully.
+
 ## Inputs
 
 | Input             | Description                                    | Required | Default |
@@ -63,4 +78,17 @@ steps:
   with:
     status-regex: 'deploy-to-.*'
     expected-checks: '1'
+```
+
+### Wait for multiple test checks with timeout
+
+```yaml
+- name: Wait for test suite checks
+  uses: zammitjohn/required-status-checks@v1
+  timeout-minutes: 5
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  with:
+    status-regex: '^test-.*'
+    expected-checks: '2'
 ```
