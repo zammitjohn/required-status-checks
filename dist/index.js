@@ -31229,10 +31229,14 @@ async function getStatusChecks() {
     }
     const octokit = githubExports.getOctokit(githubToken);
     const context = githubExports.context;
+    // Determine the correct SHA to use
+    const sha = context.payload.pull_request
+        ? context.payload.pull_request.head.sha
+        : context.sha;
     const response = await octokit.rest.repos.listCommitStatusesForRef({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        ref: context.sha
+        ref: sha
     });
     return response.data.map((status) => ({
         context: status.context,
