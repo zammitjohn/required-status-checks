@@ -31241,7 +31241,7 @@ async function getStatusChecks() {
     return response.data.map((status) => ({
         context: status.context,
         state: status.state,
-        description: status.description || ''
+        created_at: status.created_at
     }));
 }
 
@@ -31259,11 +31259,21 @@ async function run() {
             const matchedChecks = checks.filter((check) => statusRegex.test(check.context));
             if (matchedChecks.length > 0) {
                 coreExports.debug(`Found ${matchedChecks.length} matching checks`);
+                // Group checks by context and get latest for each
+                const latestChecks = new Map();
+                for (const check of matchedChecks) {
+                    const existing = latestChecks.get(check.context);
+                    if (!existing ||
+                        new Date(check.created_at) > new Date(existing.created_at)) {
+                        latestChecks.set(check.context, check);
+                    }
+                }
                 // Track successful checks
                 let successfulChecks = 0;
-                for (const check of matchedChecks) {
+                // Evaluate only the latest status for each context
+                for (const check of latestChecks.values()) {
                     if (check.state === 'failure') {
-                        throw new Error(`❌ Check '${check.context}' failed: ${check.description}`);
+                        throw new Error(`❌ Check '${check.context}' failed`);
                     }
                     if (check.state === 'success') {
                         coreExports.info(`📋 Check '${check.context}' passed`);

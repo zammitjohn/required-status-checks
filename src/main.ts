@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { getStatusChecks } from './github.js'
+import { getStatusChecks, type StatusCheck } from './github.js'
 
 const POLL_INTERVAL = 30000 // 30 seconds
 
@@ -23,14 +23,25 @@ export async function run(): Promise<void> {
       if (matchedChecks.length > 0) {
         core.debug(`Found ${matchedChecks.length} matching checks`)
 
+        // Group checks by context and get latest for each
+        const latestChecks = new Map<string, StatusCheck>()
+        for (const check of matchedChecks) {
+          const existing = latestChecks.get(check.context)
+          if (
+            !existing ||
+            new Date(check.created_at) > new Date(existing.created_at)
+          ) {
+            latestChecks.set(check.context, check)
+          }
+        }
+
         // Track successful checks
         let successfulChecks = 0
 
-        for (const check of matchedChecks) {
+        // Evaluate only the latest status for each context
+        for (const check of latestChecks.values()) {
           if (check.state === 'failure') {
-            throw new Error(
-              `❌ Check '${check.context}' failed: ${check.description}`
-            )
+            throw new Error(`❌ Check '${check.context}' failed`)
           }
           if (check.state === 'success') {
             core.info(`📋 Check '${check.context}' passed`)

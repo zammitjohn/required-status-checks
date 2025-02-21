@@ -1,6 +1,6 @@
 export interface StatusCheck {
     context: string;
     state: string;
-    description: string;
+    created_at: string;
 }
 export declare function getStatusChecks(): Promise<StatusCheck[]>;

@@ -42,8 +42,16 @@ describe('main.ts', () => {
       })
 
       getStatusChecks.mockImplementation(async () => [
-        { context: 'check1', state: 'success', description: 'Check 1 passed' },
-        { context: 'check2', state: 'success', description: 'Check 2 passed' }
+        {
+          context: 'check1',
+          state: 'success',
+          created_at: '2025-02-22T09:41:24Z'
+        },
+        {
+          context: 'check2',
+          state: 'success',
+          created_at: '2025-02-22T09:41:24Z'
+        }
       ])
     })
 
@@ -76,14 +84,16 @@ describe('main.ts', () => {
 
     it('Throws an error if a check fails', async () => {
       getStatusChecks.mockImplementation(async () => [
-        { context: 'check1', state: 'failure', description: 'Check 1 failed' }
+        {
+          context: 'check1',
+          state: 'failure',
+          created_at: '2025-02-22T09:41:24Z'
+        }
       ])
 
       await run()
 
-      expect(core.setFailed).toHaveBeenCalledWith(
-        "❌ Check 'check1' failed: Check 1 failed"
-      )
+      expect(core.setFailed).toHaveBeenCalledWith("❌ Check 'check1' failed")
     })
 
     it('Polls until all expected checks pass', async () => {
@@ -95,13 +105,13 @@ describe('main.ts', () => {
             {
               context: 'check1',
               state: 'success',
-              description: 'Check 1 passed'
+              created_at: '2025-02-22T09:41:24Z'
             },
             // check2 pending initially
             {
               context: 'check2',
               state: 'pending',
-              description: 'Check 2 running'
+              created_at: '2025-02-22T09:41:24Z'
             }
           ]
         }
@@ -109,9 +119,13 @@ describe('main.ts', () => {
           {
             context: 'check1',
             state: 'success',
-            description: 'Check 1 passed'
+            created_at: '2025-02-22T09:41:24Z'
           },
-          { context: 'check2', state: 'success', description: 'Check 2 passed' }
+          {
+            context: 'check2',
+            state: 'success',
+            created_at: '2025-02-22T09:41:25Z'
+          }
         ]
       })
 
@@ -138,9 +152,13 @@ describe('main.ts', () => {
           {
             context: 'check1',
             state: 'success',
-            description: 'Check 1 passed'
+            created_at: '2025-02-22T09:41:24Z'
           },
-          { context: 'check2', state: 'success', description: 'Check 2 passed' }
+          {
+            context: 'check2',
+            state: 'success',
+            created_at: '2025-02-22T09:41:24Z'
+          }
         ]
       })
 
@@ -169,7 +187,7 @@ describe('main.ts', () => {
             {
               context: 'check1',
               state: 'success',
-              description: 'Check 1 passed'
+              created_at: '2025-02-22T09:41:24Z'
             }
           ]
         }
@@ -177,9 +195,13 @@ describe('main.ts', () => {
           {
             context: 'check1',
             state: 'success',
-            description: 'Check 1 passed'
+            created_at: '2025-02-22T09:41:24Z'
           },
-          { context: 'check2', state: 'success', description: 'Check 2 passed' }
+          {
+            context: 'check2',
+            state: 'success',
+            created_at: '2025-02-22T09:41:25Z'
+          }
         ]
       })
 
@@ -193,6 +215,66 @@ describe('main.ts', () => {
       expect(core.info).toHaveBeenCalledWith(
         '✅ All 2 expected checks have passed successfully'
       )
+    })
+
+    it('Uses status regex to filter checks', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'status-regex') return 'test.*'
+        if (name === 'expected-checks') return '1'
+        return ''
+      })
+
+      getStatusChecks.mockImplementation(async () => [
+        {
+          context: 'test-check',
+          state: 'success',
+          created_at: '2025-02-22T09:41:24Z'
+        },
+        {
+          context: 'other-check',
+          state: 'success',
+          created_at: '2025-02-22T09:41:24Z'
+        }
+      ])
+
+      await run()
+
+      expect(core.info).toHaveBeenCalledWith("📋 Check 'test-check' passed")
+      expect(core.info).not.toHaveBeenCalledWith(
+        "📋 Check 'other-check' passed"
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        '✅ All 1 expected checks have passed successfully'
+      )
+    })
+
+    it('Evaluates only the latest status for each context', async () => {
+      getStatusChecks.mockImplementation(async () => [
+        {
+          context: 'check1',
+          state: 'success',
+          created_at: '2025-02-22T09:41:24Z'
+        },
+        {
+          context: 'check1',
+          state: 'failure',
+          created_at: '2025-02-22T09:41:25Z'
+        },
+        {
+          context: 'check2',
+          state: 'pending',
+          created_at: '2025-02-22T09:41:24Z'
+        },
+        {
+          context: 'check2',
+          state: 'success',
+          created_at: '2025-02-22T09:41:25Z'
+        }
+      ])
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith("❌ Check 'check1' failed")
     })
   })
 })
