@@ -3,6 +3,10 @@ import { getStatusChecks, type StatusCheck } from './github.js'
 
 const POLL_INTERVAL = 30000 // 30 seconds
 
+function getTimestamp(): string {
+  return new Date().toISOString()
+}
+
 export async function run(): Promise<void> {
   try {
     const statusRegex = new RegExp(core.getInput('status-regex'))
@@ -12,16 +16,23 @@ export async function run(): Promise<void> {
       throw new Error('expected-checks must be a positive number')
     }
 
+    core.info(`[${getTimestamp()}] 🔍 Starting to monitor status checks...`)
+    core.info(`[${getTimestamp()}] ⚙️ Configuration:`)
+    core.info(`   • Status regex: ${statusRegex}`)
+    core.info(`   • Expected checks: ${expectedChecks}`)
+
+    let pollCount = 0
     while (true) {
+      pollCount++
       const checks = await getStatusChecks()
-      core.debug(`Found ${checks.length} checks`)
+      core.debug(`[${getTimestamp()}] Found ${checks.length} total checks`)
 
       const matchedChecks = checks.filter((check) =>
         statusRegex.test(check.context)
       )
 
       if (matchedChecks.length > 0) {
-        core.debug(`Found ${matchedChecks.length} matching checks`)
+        core.info(`\n[${getTimestamp()}] 📊 Poll #${pollCount} Status:`)
 
         // Group checks by context and get latest for each
         const latestChecks = new Map<string, StatusCheck>()
@@ -35,31 +46,57 @@ export async function run(): Promise<void> {
           }
         }
 
-        // Track successful checks
         let successfulChecks = 0
+        let pendingChecks = 0
 
         // Evaluate only the latest status for each context
         for (const check of latestChecks.values()) {
+          const status = (() => {
+            switch (check.state) {
+              case 'success':
+                return '✅'
+              case 'failure':
+                return '❌'
+              default:
+                return '⏳'
+            }
+          })()
+
+          core.info(`   ${status} ${check.context} (${check.state})`)
+
           if (check.state === 'failure') {
-            throw new Error(`❌ Check '${check.context}' failed`)
+            throw new Error(
+              `[${getTimestamp()}] ❌ Check '${check.context}' failed`
+            )
           }
           if (check.state === 'success') {
-            core.info(`📋 Check '${check.context}' passed`)
             successfulChecks++
+          }
+          if (check.state === 'pending') {
+            pendingChecks++
           }
         }
 
-        // Exit if we have the expected number of successful checks
+        core.info(
+          `\n   Summary: ${successfulChecks}/${expectedChecks} passed, ${pendingChecks} pending`
+        )
+
         if (successfulChecks === expectedChecks) {
           core.info(
-            `✅ All ${expectedChecks} expected checks have passed successfully`
+            `\n[${getTimestamp()}] ✅ Success! All ${expectedChecks} expected checks have passed`
           )
+          core.info(`   Total polls: ${pollCount}`)
           return
         }
       } else {
-        core.info('🔄 No matching checks found yet, continuing to poll...')
+        core.info(
+          `[${getTimestamp()}] ⏳ Poll #${pollCount}: No matching checks found yet`
+        )
       }
 
+      core.info(
+        `[${getTimestamp()}] 🔄 Polling again in ${POLL_INTERVAL / 1000} seconds...`
+      )
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
     }
   } catch (error) {

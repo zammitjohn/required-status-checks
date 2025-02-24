@@ -17,6 +17,13 @@ import {
 import * as core from '../__fixtures__/core.js'
 import { getStatusChecks } from '../__fixtures__/github.js'
 
+// Helper to match timestamp format in logs
+const timestampRegex = /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/
+
+// Helper to create dynamic matchers for timestamped messages
+const withTimestamp = (message: string) =>
+  expect.stringMatching(new RegExp(`${timestampRegex.source} ${message}`))
+
 // Mocks should be declared before the module being tested is imported.
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('../src/github.js', () => ({ getStatusChecks }))
@@ -64,8 +71,23 @@ describe('main.ts', () => {
       await run()
 
       expect(core.info).toHaveBeenCalledWith(
-        '✅ All 2 expected checks have passed successfully'
+        withTimestamp('🔍 Starting to monitor status checks...')
       )
+      expect(core.info).toHaveBeenCalledWith(withTimestamp('⚙️ Configuration:'))
+      expect(core.info).toHaveBeenCalledWith('   • Status regex: /.*/')
+      expect(core.info).toHaveBeenCalledWith('   • Expected checks: 2')
+      expect(core.info).toHaveBeenCalledWith(
+        withTimestamp('📊 Poll #1 Status:')
+      )
+      expect(core.info).toHaveBeenCalledWith('   ✅ check1 (success)')
+      expect(core.info).toHaveBeenCalledWith('   ✅ check2 (success)')
+      expect(core.info).toHaveBeenCalledWith(
+        '\n   Summary: 2/2 passed, 0 pending'
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        withTimestamp('✅ Success! All 2 expected checks have passed')
+      )
+      expect(core.info).toHaveBeenCalledWith('   Total polls: 1')
     })
 
     it('Throws an error if expected-checks is not a positive number', async () => {
@@ -93,7 +115,9 @@ describe('main.ts', () => {
 
       await run()
 
-      expect(core.setFailed).toHaveBeenCalledWith("❌ Check 'check1' failed")
+      expect(core.setFailed).toHaveBeenCalledWith(
+        withTimestamp("❌ Check 'check1' failed")
+      )
     })
 
     it('Polls until all expected checks pass', async () => {
@@ -134,10 +158,10 @@ describe('main.ts', () => {
       await runPromise
 
       expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 30000)
-      expect(core.info).toHaveBeenCalledWith("📋 Check 'check1' passed")
-      expect(core.info).toHaveBeenCalledWith("📋 Check 'check2' passed")
+      expect(core.info).toHaveBeenCalledWith('   ✅ check1 (success)')
+      expect(core.info).toHaveBeenCalledWith('   ✅ check2 (success)')
       expect(core.info).toHaveBeenCalledWith(
-        '✅ All 2 expected checks have passed successfully'
+        withTimestamp('✅ Success! All 2 expected checks have passed')
       )
     })
 
@@ -167,11 +191,14 @@ describe('main.ts', () => {
       await runPromise
 
       expect(core.info).toHaveBeenCalledWith(
-        '🔄 No matching checks found yet, continuing to poll...'
+        withTimestamp('⏳ Poll #1: No matching checks found yet')
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        withTimestamp('🔄 Polling again in 30 seconds...')
       )
       expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 30000)
       expect(core.info).toHaveBeenCalledWith(
-        '✅ All 2 expected checks have passed successfully'
+        withTimestamp('✅ Success! All 2 expected checks have passed')
       )
     })
 
@@ -213,8 +240,9 @@ describe('main.ts', () => {
       expect(setTimeout).toHaveBeenCalledTimes(2)
       expect(getStatusChecks).toHaveBeenCalledTimes(3)
       expect(core.info).toHaveBeenCalledWith(
-        '✅ All 2 expected checks have passed successfully'
+        withTimestamp('✅ Success! All 2 expected checks have passed')
       )
+      expect(core.info).toHaveBeenCalledWith('   Total polls: 3')
     })
 
     it('Uses status regex to filter checks', async () => {
@@ -239,12 +267,12 @@ describe('main.ts', () => {
 
       await run()
 
-      expect(core.info).toHaveBeenCalledWith("📋 Check 'test-check' passed")
+      expect(core.info).toHaveBeenCalledWith('   ✅ test-check (success)')
       expect(core.info).not.toHaveBeenCalledWith(
-        "📋 Check 'other-check' passed"
+        expect.stringContaining('other-check')
       )
       expect(core.info).toHaveBeenCalledWith(
-        '✅ All 1 expected checks have passed successfully'
+        '\n   Summary: 1/1 passed, 0 pending'
       )
     })
 
@@ -274,7 +302,9 @@ describe('main.ts', () => {
 
       await run()
 
-      expect(core.setFailed).toHaveBeenCalledWith("❌ Check 'check1' failed")
+      expect(core.setFailed).toHaveBeenCalledWith(
+        withTimestamp("❌ Check 'check1' failed")
+      )
     })
   })
 })
