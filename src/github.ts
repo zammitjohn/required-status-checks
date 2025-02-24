@@ -3,7 +3,7 @@ import * as github from '@actions/github'
 export interface StatusCheck {
   context: string
   state: string
-  description: string
+  created_at: string
 }
 
 export async function getStatusChecks(): Promise<StatusCheck[]> {
@@ -29,6 +29,6 @@ export async function getStatusChecks(): Promise<StatusCheck[]> {
   return response.data.map((status) => ({
     context: status.context,
     state: status.state,
-    description: status.description || ''
+    created_at: status.created_at
   }))
 }
