@@ -4,6 +4,7 @@ export interface StatusCheck {
   context: string
   state: string
   created_at: string
+  target_url: string | null
 }
 
 export async function getStatusChecks(): Promise<StatusCheck[]> {
@@ -29,6 +30,7 @@ export async function getStatusChecks(): Promise<StatusCheck[]> {
   return response.data.map((status) => ({
     context: status.context,
     state: status.state,
-    created_at: status.created_at
+    created_at: status.created_at,
+    target_url: status.target_url
   }))
 }

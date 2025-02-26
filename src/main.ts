@@ -3,10 +3,6 @@ import { getStatusChecks, type StatusCheck } from './github.js'
 
 const POLL_INTERVAL = 30000 // 30 seconds
 
-function getTimestamp(): string {
-  return new Date().toISOString()
-}
-
 export async function run(): Promise<void> {
   try {
     const statusRegex = new RegExp(core.getInput('status-regex'))
@@ -16,8 +12,8 @@ export async function run(): Promise<void> {
       throw new Error('expected-checks must be a positive number')
     }
 
-    core.info(`[${getTimestamp()}] 🔍 Starting to monitor status checks...`)
-    core.info(`[${getTimestamp()}] ⚙️ Configuration:`)
+    core.info('🔍 Starting to monitor status checks...')
+    core.info('⚙️ Configuration:')
     core.info(`   • Status regex: ${statusRegex}`)
     core.info(`   • Expected checks: ${expectedChecks}`)
 
@@ -25,14 +21,14 @@ export async function run(): Promise<void> {
     while (true) {
       pollCount++
       const checks = await getStatusChecks()
-      core.debug(`[${getTimestamp()}] Found ${checks.length} total checks`)
+      core.debug(`Found ${checks.length} total checks`)
 
       const matchedChecks = checks.filter((check) =>
         statusRegex.test(check.context)
       )
 
       if (matchedChecks.length > 0) {
-        core.info(`\n[${getTimestamp()}] 📊 Poll #${pollCount} Status:`)
+        core.info(`\n📊 Poll #${pollCount} Status:`)
 
         // Group checks by context and get latest for each
         const latestChecks = new Map<string, StatusCheck>()
@@ -66,7 +62,7 @@ export async function run(): Promise<void> {
 
           if (check.state === 'failure') {
             throw new Error(
-              `[${getTimestamp()}] ❌ Check '${check.context}' failed`
+              `❌ Check '${check.context}' failed${check.target_url && ` (see details at ${check.target_url})`}`
             )
           }
           if (check.state === 'success') {
@@ -83,20 +79,16 @@ export async function run(): Promise<void> {
 
         if (successfulChecks === expectedChecks) {
           core.info(
-            `\n[${getTimestamp()}] ✅ Success! All ${expectedChecks} expected checks have passed`
+            `\n✅ Success! All ${expectedChecks} expected checks have passed`
           )
           core.info(`   Total polls: ${pollCount}`)
           return
         }
       } else {
-        core.info(
-          `[${getTimestamp()}] ⏳ Poll #${pollCount}: No matching checks found yet`
-        )
+        core.info(`⏳ Poll #${pollCount}: No matching checks found yet`)
       }
 
-      core.info(
-        `[${getTimestamp()}] 🔄 Polling again in ${POLL_INTERVAL / 1000} seconds...`
-      )
+      core.info(`🔄 Polling again in ${POLL_INTERVAL / 1000} seconds...`)
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL))
     }
   } catch (error) {
